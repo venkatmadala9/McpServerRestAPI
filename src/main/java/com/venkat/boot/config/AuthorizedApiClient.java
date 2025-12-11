@@ -43,6 +43,36 @@ public class AuthorizedApiClient {
      }
  }
 
+
+ public String post(String pathTemplate, String jsonBody) {
+     String token = tokenManager.getValidToken();
+     try {
+         return apiRestClient.post()
+                 .uri(pathTemplate)
+                 .contentType(MediaType.APPLICATION_JSON)
+                 .accept(MediaType.APPLICATION_JSON)
+                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                 .body(jsonBody)
+                 .retrieve()
+                 .onStatus(HttpStatusCode::isError, (req, res) -> { /* let exception be thrown */ })
+                 .body(String.class);
+     } catch (Exception ex) {
+         if (is401(ex)) {
+             tokenManager.refreshToken();
+             String newToken = tokenManager.getValidToken();
+             return apiRestClient.post()
+                     .uri(pathTemplate)
+                     .contentType(MediaType.APPLICATION_JSON)
+                     .accept(MediaType.APPLICATION_JSON)
+                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + newToken)
+                     .body(jsonBody)
+                     .retrieve()
+                     .body(String.class);
+         }
+         throw ex;
+     }
+ }
+
  private boolean is401(Exception ex) {
      String msg = ex.getMessage();
      return msg != null && (msg.contains("401") || msg.toLowerCase().contains("unauthorized"));
